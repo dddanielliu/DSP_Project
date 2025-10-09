@@ -19,7 +19,10 @@ CREATE TABLE IF NOT EXISTS law_chunks (
 
     -- 條文編號 (Metadata for filtering and display)
     article_no TEXT,
-    
+
+    -- 條文款項
+    section_no INT,
+
     -- 片段索引 (如果一條法規被分成多個 Chunk)
     chunk_index INT NOT NULL,
     
