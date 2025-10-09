@@ -59,4 +59,3 @@ if __name__ == "__main__":
     for i, chunk in enumerate(top_chunks, 1):
         print(f"\n#{i} | Law: {chunk[1]}, Chapter: {chunk[2]}, Article: {chunk[3]}, Chunk Index: {chunk[4]}")
         print(f"Content: {chunk[5][:300]}{'...' if len(chunk[5]) > 300 else ''}")
-

@@ -1,9 +1,10 @@
 [project]
-name = "app"
+name = "laws_database"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
+
 dependencies = [
     "accelerate>=1.10.1",
     "langchain>=0.3.27",
@@ -14,19 +15,50 @@ dependencies = [
     "pypdf>=6.1.1",
     "sentence-transformers>=5.1.1",
     "tiktoken>=0.12.0",
-    "torch>=2.8.0",
     "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.8.0",
+    "torchvision>=0.20.0",
+]
+
+rocm = [
+    "torch>=2.8.0",
+    "torchvision>=0.20.0",
+    "pytorch-triton-rocm>=2.1.0",
 ]
 
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cpu" },
+  { index = "pytorch-cpu", extra = "cpu" }, # Only install with --extra cpu
+  { index = "pytorch-rocm", extra = "rocm" }, # Only install with --extra rocm
 ]
+
 torchvision = [
-    { index = "pytorch-cpu" },
+  { index = "pytorch-cpu", extra = "cpu" }, # Only install with --extra cpu
+  { index = "pytorch-rocm", extra = "rocm" }, # Only install with --extra rocm
+]
+
+pytorch-triton-rocm = [
+  { index = "pytorch-rocm", extra = "rocm" },
 ]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm"
+url = "https://download.pytorch.org/whl/rocm6.4"
+explicit = true
+
+[tool.uv]
+conflicts = [
+    [
+      { extra = "cpu" },
+      { extra = "rocm" },
+    ],
+]

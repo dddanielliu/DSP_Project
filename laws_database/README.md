@@ -30,7 +30,85 @@ and generated `law_chunks_backup.sql` file, you can get it in release files
 put `law_chunks_backup.sql` in current folder, then run
 
 ```
-docker compose up -d
+docker compose up --build -d
+```
+
+this will default to install torch-cpu
+
+If you are AMD GPU and you want to use torch-rocm:
+
+```
+TORCH_VARIANT=rocm docker compose up --build -d
 ```
 
 Then database is built.
+
+You can start testing by entering text_db container
+
+```
+docker compose exec -it text_db bash
+```
+
+Activate virtural environment and run demo script
+
+```
+source .venv/bin/activate
+python demo_semantic_search.py
+```
+
+## Manual deployment
+
+Install Postgres 18 and pgvector
+
+```bash
+# Add PostgreSQL repository
+echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+```
+
+```bash
+sudo apt install postgresql-18 postgresql-contrib-18
+sudo apt insatll postgres-18-pgvector
+```
+
+After starting your postgres server
+
+run law_chunks_backup.sql in your postgres by
+
+```
+psql -U postgres -d lawdb -f ./law_chunks_backup.sql
+```
+
+Then database is built.
+
+You can start testing by creating and activating virtural environment.
+
+First you need to install `uv`
+
+After installing, run the following script to create a virtual environment:
+
+```
+uv sync
+```
+
+this will default to install torch-cpu
+
+If you are AMD GPU and you want to use torch-rocm:
+
+
+```
+uv sync --extra rocm
+```
+
+
+Activating virtural environment
+
+```
+source .venv/bin/activate
+```
+
+Run demo script:
+
+```
+python demo_semantic_search.py
+```

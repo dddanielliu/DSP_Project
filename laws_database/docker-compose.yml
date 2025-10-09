@@ -3,11 +3,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - TORCH_VARIANT=${TORCH_VARIANT:-cpu} # rocm
     working_dir: /app
     tty: true
     stdin_open: true
     ports:
-      - "8901:8000"
+      - "8901:8901"
     environment:
       - PG_HOST=${PG_HOST}
       - PG_PORT=${PG_PORT}
@@ -17,7 +19,6 @@ services:
     depends_on:
       - postgres
   postgres:
-    # 使用已經預裝了 pgvector 擴展的映象
     image: pgvector/pgvector:pg18
     restart: on-failure
     # ports:
@@ -26,10 +27,8 @@ services:
       - ./law_chunks_backup.sql:/docker-entrypoint-initdb.d/law_chunks_backup.sql
       - pgdata:/var/lib/postgresql/
     environment:
-      # 設定資料庫名稱、使用者和密碼 (與您 Python 連線字串保持一致)
       POSTGRES_DB: ${PG_NAME}
       POSTGRES_USER: ${PG_USER}
       POSTGRES_PASSWORD: ${PG_PASSWORD}
-
 volumes:
   pgdata:
