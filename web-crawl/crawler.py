@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
 import pandas as pd
+import numpy as np
 database=pd.DataFrame([],columns=["actname","chapter","title","article"])
 import os
 import re
@@ -22,7 +23,7 @@ def crawl_questions(url, filename):
     # 找出所有 class='row' 的 div (條文) 和 class='char-2' 的 div (章節標題)
     major_elements = soup.find_all('div', class_=['row', 'char-2']) 
     
-    lawbase = pd.DataFrame([], columns=["actname", "chapter", "title", "article"])
+    lawbase = pd.DataFrame([], columns=["actname", "chapter", "title", "subsection", "article"])
     current_chapter = ""  # 初始化章節名稱
 
     for element in major_elements:
@@ -53,20 +54,44 @@ def crawl_questions(url, filename):
             
             title_div = element.find('div', class_='col-no')
             article_div = element.find('div', class_='law-article')
-            
             if title_div and article_div:
-                exports = pd.DataFrame()
+                all_lines = article_div.find_all('div', recursive=False)
+                current_subsection_id = 0
+
+                # 1. Prepare for iteration
+                current_section = None
+                for line in all_lines:
+                    line_classes = line.get('class', [])
+                    if 'line-0000' in line_classes and 'show-number' in line_classes:
+                        if current_section != None:
+                            title_text = title_div.text.replace("本條文有附件", "").replace(" ", "").strip()
+                            exports = pd.DataFrame()
+                            exports["actname"] = [filename]
+                            exports["chapter"] = [current_chapter]
+                            exports["title"] = [title_text]
+                            exports["subsection"] = [current_subsection_id if current_subsection_id != 0 else np.nan]
+                            exports["article"] = [current_section]
+                            lawbase = pd.concat([lawbase, exports], ignore_index=True)
+                            current_section = None
+                        current_subsection_id += 1
+                    
+                    if current_section is None:
+                        current_section = line.text.strip()
+                    else:
+                        current_section += "\n" + line.text.strip()
                 
-                title_text = title_div.text.replace("本條文有附件", "").replace(" ", "").strip()
-                
-                exports["actname"] = [filename]
-                # 使用已經清理過的 chapter 
-                exports["chapter"] = [current_chapter] 
-                exports["title"] = [title_text]
-                exports["article"] = [article_div.text.strip()]
-                
-                lawbase = pd.concat([lawbase, exports], ignore_index=True)
-                
+                if current_section is not None:
+                    title_text = title_div.text.replace("本條文有附件", "").replace(" ", "").strip()
+                        
+                    exports = pd.DataFrame()
+                    exports["actname"] = [filename]
+                    exports["chapter"] = [current_chapter]
+                    exports["title"] = [title_text]
+                    exports["subsection"] = [current_subsection_id if current_subsection_id != 0 else np.nan]
+                    exports["article"] = [current_section]
+                    lawbase = pd.concat([lawbase, exports], ignore_index=True)
+                    current_section = None
+
     return lawbase
 
 if __name__ == "__main__":
@@ -76,7 +101,7 @@ if __name__ == "__main__":
         os.mkdir("laws")
     for url in urls:
         try:
-            database=pd.DataFrame([],columns=["actname","chapter","title","article"])
+            database=pd.DataFrame([],columns=["actname","chapter","title","subsection","article"])
             print("Crawling URL:", url)
             # Call the function with the URL
             web = requests.get(url)
@@ -87,9 +112,9 @@ if __name__ == "__main__":
             #database.to_csv("{}.csv".format(filename))
             #%%第三段
             database.to_csv(os.path.join("laws", "{}_{}.csv".format(filename, url.replace(":", "_").replace("/", "_").replace("?", "_"))),index=False)
-        except:
+        except Exception as err:
             # direct download file
-            print("Error occurred, trying to download file directly:", url)
+            print("Error occurred, trying to download file directly:", url, "({})".format(err))
             try:
                 response = requests.get(url)
                 if response.status_code == 200:

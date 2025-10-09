@@ -21,25 +21,27 @@ PG_CONN_STRING = (
 )
 print(f"Database connection string assembled (excluding password): dbname={PG_DATABASE} user={PG_USER} host={PG_HOST} port={PG_PORT}")
 
-def generate_sha256_id(actname: str, chapter: str | None, article_no: str | None, chunk_index: int, content: str) -> str:
+def generate_sha256_id(actname: str, chapter: str | None, article_no: str | None, section_no: str | None, chunk_index: int, content: str) -> str:
     """計算基於法條元數據和內容的 SHA-256 雜湊 ID"""
     # 將所有輸入參數合併成一個字串
     if chapter is None:
         chapter = ""
     if article_no is None:
         article_no = ""
-    unique_string = f"{actname}-{chapter}-{article_no}-{chunk_index}-{content}"
+    if section_no is None:
+        section_no = ""
+    unique_string = f"{actname}-{chapter}-{article_no}-{section_no}-{chunk_index}-{content}"
     
     # 計算 SHA-256 雜湊並返回十六進位字串
     return hashlib.sha256(unique_string.encode('utf-8')).hexdigest()
 
-def insert_chunk_and_commit(conn, actname: str, chapter: str | None, article_no: str | None, chunk_index: int, content: str, embedding: np.ndarray):
+def insert_chunk_and_commit(conn, actname: str, chapter: str | None, article_no: str | None, section_no: str | None, chunk_index: int, content: str, embedding: np.ndarray):
     """
     將單一 Chunk 及其向量插入到 PostgreSQL 資料庫，並立即提交 (COMMIT)。
     """
     cur = conn.cursor()
 
-    primary_id = generate_sha256_id(actname, chapter, article_no, chunk_index, content)
+    primary_id = generate_sha256_id(actname, chapter, article_no, section_no, chunk_index, content)
     
     # 將 NumPy 向量轉換為 pgvector 期望的字串表示
     embedding_str = str(embedding.tolist())
@@ -48,16 +50,16 @@ def insert_chunk_and_commit(conn, actname: str, chapter: str | None, article_no:
         cur.execute(
             """
             INSERT INTO law_chunks 
-            (id, law_name, chapter, article_no, chunk_index, content, embedding) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s::VECTOR)
+            (id, law_name, chapter, article_no, section_no, chunk_index, content, embedding) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s::VECTOR)
             """,
-            (primary_id, actname, chapter, article_no, chunk_index, content, embedding_str)
+            (primary_id, actname, chapter, article_no, section_no, chunk_index, content, embedding_str)
         )
         # 關鍵：每次插入後立即提交
         conn.commit()
     except Exception as e:
         conn.rollback() # 發生錯誤時回滾該筆資料
-        print(f"Error inserting {actname} - {chapter} - {article_no} (Index {chunk_index}): {e}")
+        print(f"Error inserting {actname} - {chapter} - {article_no} - {section_no} (Index {chunk_index}): {e}")
         # 由於是逐條儲存，這裡可以選擇不拋出異常，繼續處理下一筆
     finally:
         cur.close()
@@ -108,6 +110,7 @@ if __name__ == "__main__":
             actname = clean_value(rows.actname) # 法條
             chapter = clean_value(rows.chapter) # 章
             title = clean_value(rows.title) # 第?條
+            section_no = clean_value(rows.subsection) # 款號
             article = clean_value(rows.article) # 內容
 
             chunks = recursive_chunker(article)
@@ -115,7 +118,7 @@ if __name__ == "__main__":
             document_embeddings = model.encode(chunks)
             # print("embedding done")
             for i, vec in enumerate(document_embeddings):
-                insert_chunk_and_commit(conn, actname, chapter, title, i, chunks[i], vec)
+                insert_chunk_and_commit(conn, actname, chapter, title, section_no, i, chunks[i], vec)
 
     for item in tqdm(os.listdir("pdfs"), desc="Processing PDF files"):
         pdf_file = os.path.join("pdfs", item)
@@ -128,5 +131,6 @@ if __name__ == "__main__":
         actname = item.replace(".pdf", "")
         chapter = None
         title = None
+        section_no = None
         for i, vec in enumerate(document_embeddings):
-            insert_chunk_and_commit(conn, actname, chapter, title, i, documents[i], vec)
+            insert_chunk_and_commit(conn, actname, chapter, title, section_no, i, documents[i], vec)

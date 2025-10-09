@@ -17,10 +17,7 @@ PG_CONN_STRING = (
 
 # ------------------ Load Embedding Model ------------------
 MODEL_NAME = "intfloat/multilingual-e5-large"
-model = SentenceTransformer(
-    MODEL_NAME,
-    tokenizer_kwargs={"padding_side": "left"},
-)
+model = None
 
 # ------------------ Query Function ------------------
 def query_top_k_law_chunks(query: str, top_k: int = 5):
@@ -37,7 +34,7 @@ def query_top_k_law_chunks(query: str, top_k: int = 5):
 
     # pgvector similarity search using L2 (Euclidean distance)
     sql = f"""
-    SELECT id, law_name, chapter, article_no, chunk_index, content, embedding
+    SELECT id, law_name, chapter, article_no, section_no, chunk_index, content, embedding
     FROM law_chunks
     ORDER BY embedding <-> %s::vector
     LIMIT %s;
@@ -52,10 +49,19 @@ def query_top_k_law_chunks(query: str, top_k: int = 5):
 
 # ------------------ Demo ------------------
 if __name__ == "__main__":
-    query = input("Enter your query: ")
-    top_chunks = query_top_k_law_chunks(query, top_k=5)
+    try:
+        print("Loading embedding model...")
+        model = SentenceTransformer(
+            MODEL_NAME,
+            tokenizer_kwargs={"padding_side": "left"},
+        )
+        while True:
+            query = input("Enter your query: ")
+            top_chunks = query_top_k_law_chunks(query, top_k=10)
 
-    print("\nTop 5 most relevant law chunks:")
-    for i, chunk in enumerate(top_chunks, 1):
-        print(f"\n#{i} | Law: {chunk[1]}, Chapter: {chunk[2]}, Article: {chunk[3]}, Chunk Index: {chunk[4]}")
-        print(f"Content: {chunk[5][:300]}{'...' if len(chunk[5]) > 300 else ''}")
+            print("\nTop 10 most relevant law chunks:")
+            for i, chunk in enumerate(top_chunks, 1):
+                print(f"\n#{i} | Law: {chunk[1]}, Chapter: {chunk[2]}, Article: {chunk[3]}, Section_no: {chunk[4]}, Chunk Index: {chunk[5]}")
+                print(f"Content: {chunk[6][:300]}{'...' if len(chunk[6]) > 300 else ''}")
+    except KeyboardInterrupt:
+        print("\nExiting...")

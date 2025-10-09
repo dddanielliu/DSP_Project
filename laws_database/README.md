@@ -1,7 +1,7 @@
 
 ## Data Preprocessing
 
-First put the crawled csv and pdfs by [web-crawl](../web-crawl/crawler.py) to `./laws` and `./pdfs` (You can download from release file `law_crawled.zip`)
+First put the crawled csv and pdfs by [web-crawl](../web-crawl/) to `./laws` and `./pdfs` (You can download from release file `law_crawled.zip`)
 
 `create_vector.py` will first go through each csv in `./laws`.
 

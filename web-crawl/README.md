@@ -6,7 +6,7 @@ first copy the div that contains the links that you want to crawl, put it in `di
 
 After running 
 ```bash
-python get_link_from_div.py| sort -u | tee links.txt
+python get_link_from_div.py | sort -u | tee links.txt
 ```
 
 you will get a links.txt file that contains all the links that you want to crawl
