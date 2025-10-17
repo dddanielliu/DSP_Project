@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS law_chunks (
     article_no TEXT,
 
     -- 條文款項
-    section_no INT,
+    subsection_no INT,
 
     -- 片段索引 (如果一條法規被分成多個 Chunk)
-    chunk_index INT NOT NULL,
+    chunk_index INT,
     
     -- 實際的法條文本內容 (Text)
     content TEXT NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS law_chunks (
 -- 3. (選做) 建立索引
 -- 為了高效的向量相似度搜尋 (k-Nearest Neighbors)，建議在 embedding 欄位上建立索引。
 -- HNSW 索引適用於大多數 RAG 應用，提供最佳的性能-準確性權衡。
--- M=16, ef_construction=64 是一組常見的參數。
+-- M=16, ef_construction=64 是一組常見的參數。 
 CREATE INDEX ON law_chunks USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 
 -- 或者，如果您擔心建表速度，可以先不建索引，在資料匯入完成後手動建立。

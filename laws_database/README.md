@@ -53,7 +53,7 @@ Activate virtural environment and run demo script
 
 ```
 source .venv/bin/activate
-python demo_semantic_search.py
+python demo_similarity_search.py
 ```
 
 ## Manual deployment
@@ -72,6 +72,12 @@ sudo apt insatll postgres-18-pgvector
 ```
 
 After starting your postgres server
+
+Then create database `lawdb`
+
+```
+createdb -U postgres lawdb
+```
 
 run law_chunks_backup.sql in your postgres by
 
@@ -110,5 +116,5 @@ source .venv/bin/activate
 Run demo script:
 
 ```
-python demo_semantic_search.py
+python demo_similarity_search.py
 ```

@@ -23,7 +23,7 @@ model = None
 def query_top_k_law_chunks(query: str, top_k: int = 5):
     """Return top-k most relevant law chunks for a given query string."""
     # Compute embedding of the query
-    query_embedding = model.encode([query])[0]
+    query_embedding = model.encode(["query: "+query])[0]
     print("embedding complete")
     print(query_embedding)
     embedding_str = str(query_embedding.tolist())  # convert to PostgreSQL array format
@@ -34,8 +34,10 @@ def query_top_k_law_chunks(query: str, top_k: int = 5):
 
     # pgvector similarity search using L2 (Euclidean distance)
     sql = f"""
-    SELECT id, law_name, chapter, article_no, section_no, chunk_index, content, embedding
+    SELECT id, law_name, chapter, article_no, subsection_no, chunk_index, content, embedding
     FROM law_chunks
+    WHERE chunk_index IS NOT NULL
+      AND content <> '（刪除）'
     ORDER BY embedding <-> %s::vector
     LIMIT %s;
     """
@@ -61,7 +63,7 @@ if __name__ == "__main__":
 
             print("\nTop 10 most relevant law chunks:")
             for i, chunk in enumerate(top_chunks, 1):
-                print(f"\n#{i} | Law: {chunk[1]}, Chapter: {chunk[2]}, Article: {chunk[3]}, Section_no: {chunk[4]}, Chunk Index: {chunk[5]}")
+                print(f"\n#{i} | Law: {chunk[1]}, Chapter: {chunk[2]}, Article: {chunk[3]}, subsection_no: {chunk[4]}, Chunk Index: {chunk[5]}")
                 print(f"Content: {chunk[6][:300]}{'...' if len(chunk[6]) > 300 else ''}")
     except KeyboardInterrupt:
         print("\nExiting...")
