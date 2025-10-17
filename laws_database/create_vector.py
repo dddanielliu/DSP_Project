@@ -144,11 +144,11 @@ if __name__ == "__main__":
         data = loader.load()
         texts = text_splitter.split_documents(data)
         documents = [t.page_content for t in texts]
+        actname = item.replace(".pdf", "")
         chapter = None
         title = None
         subsection_no = None
         insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, None, "".join(documents), None)
         document_embeddings = model.encode(["passage: " + document for document in documents])
-        actname = item.replace(".pdf", "")
         for i, vec in enumerate(document_embeddings):
             insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, i, documents[i], vec)
