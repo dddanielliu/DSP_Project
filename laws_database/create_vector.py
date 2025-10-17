@@ -102,7 +102,7 @@ if __name__ == "__main__":
             " ",               # 8. 空格
             ""                 # 9. 最差情況：強制字元切分
         ],
-        chunk_size=350, chunk_overlap=100
+        chunk_size=500, chunk_overlap=200
     )
     # model.to(device)
     # print("start")
@@ -142,13 +142,13 @@ if __name__ == "__main__":
         pdf_file = os.path.join("pdfs", item)
         loader = PyPDFLoader(pdf_file)
         data = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=200)
         texts = text_splitter.split_documents(data)
         documents = [t.page_content for t in texts]
-        document_embeddings = model.encode(documents)
-        actname = item.replace(".pdf", "")
         chapter = None
         title = None
         subsection_no = None
+        insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, None, "".join(documents), None)
+        document_embeddings = model.encode(["passage: " + document for document in documents])
+        actname = item.replace(".pdf", "")
         for i, vec in enumerate(document_embeddings):
             insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, i, documents[i], vec)
