@@ -10,8 +10,6 @@ from langchain_core.documents import Document
 from langchain_ollama import ChatOllama, OllamaLLM
 from sentence_transformers import SentenceTransformer
 
-from ..web_crawl.generate_law import search_law_by_name
-
 # ------------------ PostgreSQL Connection ------------------
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PORT = os.environ.get("PG_PORT", "5432")
@@ -31,6 +29,10 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-oss:20b")
 # ------------------ Load Embedding Model ------------------
 MODEL_NAME = "intfloat/multilingual-e5-large"
 
+AUTO_ADD_LAW = False if os.environ.get("AUTO_ADD_LAW", "0") == "0" else True
+
+if AUTO_ADD_LAW:
+    from .add_single_law import add_single_law
 
 class SimilaritySearch:
     def __init__(self):
@@ -107,7 +109,7 @@ class SimilaritySearch:
 
         if len(chunk_results) == 0:
             try:
-                with open("no_law_name_filter.txt", "r", encoding="utf-8") as f:
+                with open(os.path.join(os.path.dirname(__file__), "..", "web_crawl", "no_law_name_filter.txt"), "r", encoding="utf-8") as f:
                     existing_filters = f.read().splitlines()
             except FileNotFoundError:
                 # File doesn't exist yet, so no need to check existing entries
@@ -115,8 +117,18 @@ class SimilaritySearch:
 
             # 2. Write to the file only if it's a new entry
             if law_name_filter not in existing_filters:
-                with open("no_law_name_filter.txt", "a", encoding="utf-8") as f:
+                with open(os.path.join(os.path.dirname(__file__), "..", "web_crawl", "no_law_name_filter.txt"), "a", encoding="utf-8") as f:
                     f.write(f"{law_name_filter}\n")
+        
+            if law_name_filter is not None and AUTO_ADD_LAW:
+                print(f"[SimilaritySearch] Attempting Auto-adding '{law_name_filter}'")
+                # 嘗試自動新增法規連結
+                add_single_law(law_name_filter)
+                # print(f"[SimilaritySearch] Re-attempting retrieval after Auto-adding '{law_name_filter}'")
+                # 再次嘗試檢索
+                chunk_results = self.get_top_k_law_chunks(query, top_k, law_name_filter)
+                print(f"[SimilaritySearch] Retrieved {len(chunk_results)} chunks after Auto-adding for query='{query}' with law_name_filter='{law_name_filter}'")
+
 
         documents = [
             Document(

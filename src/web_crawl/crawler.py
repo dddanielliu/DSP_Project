@@ -63,7 +63,7 @@ def crawl_questions(url, filename):
                 for line in all_lines:
                     line_classes = line.get('class', [])
                     if 'line-0000' in line_classes and 'show-number' in line_classes:
-                        if current_section != None:
+                        if current_section is not None:
                             title_text = title_div.text.replace("本條文有附件", "").replace(" ", "").strip()
                             exports = pd.DataFrame()
                             exports["actname"] = [filename]
@@ -94,24 +94,27 @@ def crawl_questions(url, filename):
 
     return lawbase
 
+def process_url(url: str):
+    database=pd.DataFrame([],columns=["actname","chapter","title","subsection","article"])
+    print("Crawling URL:", url)
+    # Call the function with the URL
+    web = requests.get(url)
+    soup = BeautifulSoup(web.text, "html.parser")
+    filename=soup.find('table').find('a').text
+    lawbase=crawl_questions(url, filename)
+    database=pd.concat([lawbase,database])
+    #database.to_csv("{}.csv".format(filename))
+    return (database, filename)
+
 if __name__ == "__main__":
-    with open("links.txt", "r") as file:
+    with open(os.path.join(os.path.dirname(__file__),"links.txt"), "r") as file:
         urls = [line.strip() for line in file.readlines()]
     if os.path.exists("laws") is False:
         os.mkdir("laws")
     for url in urls:
         try:
-            database=pd.DataFrame([],columns=["actname","chapter","title","subsection","article"])
-            print("Crawling URL:", url)
-            # Call the function with the URL
-            web = requests.get(url)
-            soup = BeautifulSoup(web.text, "html.parser")
-            filename=soup.find('table').find('a').text
-            lawbase=crawl_questions(url, filename)
-            database=pd.concat([lawbase,database])
-            #database.to_csv("{}.csv".format(filename))
-            #%%第三段
-            database.to_csv(os.path.join("laws", "{}_{}.csv".format(filename, url.replace(":", "_").replace("/", "_").replace("?", "_"))),index=False)
+            database, filename = process_url(url)
+            database.to_csv(os.path.join(os.path.dirname(__file__), "laws", "{}_{}.csv".format(filename, url.replace(":", "_").replace("/", "_").replace("?", "_"))),index=False)
         except Exception as err:
             # direct download file
             print("Error occurred, trying to download file directly:", url, "({})".format(err))
@@ -119,9 +122,9 @@ if __name__ == "__main__":
                 response = requests.get(url)
                 if response.status_code == 200:
                     filename = url.split("/")[-1]
-                    if os.path.exists("pdfs") is False:
+                    if os.path.exists(os.path.join(os.path.dirname(__file__),"pdfs")) is False:
                         os.mkdir("pdfs")
-                    with open(os.path.join("pdfs", unquote(filename)), "wb") as file:
+                    with open(os.path.join(os.path.dirname(__file__), "pdfs", unquote(filename)), "wb") as file:
                         file.write(response.content)
                     print(f"檔案已下載並儲存為: {filename}")
                 else:

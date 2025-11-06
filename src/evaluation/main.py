@@ -1,10 +1,11 @@
 import os
 import sys
+import re
 
 import pandas as pd
 from pandas.errors import EmptyDataError
 
-from . import similarity_search
+from ..laws_database import similarity_search
 
 
 def get_qa_from_csv(file_path: str):
@@ -77,11 +78,11 @@ def ask(query: str):
 
 
 def main():
-    for f in os.listdir("../question_crawl/csvs"):
-        f = "test.csv"
-        result_csv = "evaluation_results_test.csv"
+    for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
+    # for f in ["109-1職業安全管理學術科試題.csv","109-1職業安全衛生管理學術科試題.csv","111-3職業衛生管理學科試題.csv"]:
+        result_csv = os.path.join(os.path.dirname(__file__),"evaluation_results.csv")
         print(f"Evaluating file: {f}")
-        df = get_qa_from_csv(os.path.join("../question_crawl/csvs", f))
+        df = get_qa_from_csv(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs", f))
         if df.empty:
             continue
         for _, row in df.iterrows():
@@ -91,9 +92,12 @@ def main():
             print("-----")
             print(f"#Q{idx} Question: {question}")
             response = ask(question)
+            match = re.search(r'([A-Za-z0-9]+)$', response.strip())
+            if match:
+                response = match.group(1)
             print(f"Model Answer: {response}")
             print(f"Correct Answer: {answer}")
-            if not os.path.exists(result_csv):
+            if not os.path.exists(os.path.join(os.path.dirname(__file__), result_csv)):
                 with open(result_csv, "w", encoding="utf-8") as out_f:
                     out_f.write(
                         '"file","number","question","model_answer","correct_answer"\n'

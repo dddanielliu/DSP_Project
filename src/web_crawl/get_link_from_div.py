@@ -1,10 +1,11 @@
+import os
 from bs4 import BeautifulSoup
 # from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 # from reportlab.lib.styles import getSampleStyleSheet
 # from reportlab.lib.pagesizes import A4
 
 # Read the div content from file
-with open("div.txt", "r", encoding="utf-8") as f:
+with open(os.path.join(os.path.dirname(__file__),"div.txt"), "r", encoding="utf-8") as f:
     html_content = f.read()
 
 # Parse with BeautifulSoup
