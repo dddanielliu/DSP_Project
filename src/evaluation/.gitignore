@@ -1,3 +1,4 @@
+*.csv
 laws/
 pdfs/
 law_chunks_backup.sql

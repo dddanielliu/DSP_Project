@@ -33,7 +33,7 @@ def query_top_k_law_chunks(query: str, top_k: int = 5):
     cur = conn.cursor()
 
     # pgvector similarity search using L2 (Euclidean distance)
-    sql = f"""
+    sql = """
     SELECT id, law_name, chapter, article_no, subsection_no, chunk_index, content, embedding
     FROM law_chunks
     WHERE chunk_index IS NOT NULL
