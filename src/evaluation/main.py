@@ -148,7 +148,6 @@ def main():
                 row.to_csv(result_path, index=False, encoding="utf-8")
             else:
                 row.to_csv(result_path, mode="a", index=False, header=False, encoding="utf-8")
-        break
 
 
 if __name__ == "__main__":
