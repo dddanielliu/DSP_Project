@@ -26,3 +26,11 @@ def add_single_law(lawname: str, save_link: bool = True, save_csv: bool = True):
     except Exception as e:
         print(f"Error adding law '{law_title}': {e}")
         return
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python add_single_law.py <law_name>")
+    else:
+        law_name = sys.argv[1]
+        add_single_law(law_name)
+        print(f"Added law '{law_name}' successfully.")

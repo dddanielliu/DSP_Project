@@ -1,6 +1,7 @@
 import os
-import sys
 import re
+import sys
+import traceback
 
 import pandas as pd
 from pandas.errors import EmptyDataError
@@ -22,7 +23,7 @@ def get_qa_from_csv(file_path: str):
 
 def ask(query: str):
     agent = similarity_search.create_law_assistant_agent(
-        verbose=True, config={"recursion_limit": 100}
+        verbose=True, config={"recursion_limit": 100}, model_name="gpt-oss:20b"
     )
 
     # First, perform a manual retrieval for the user's original query
@@ -76,10 +77,45 @@ def ask(query: str):
 
     return final_answer
 
+def try_ask(question: str) -> str:
+    response = ""
+    try_times = 0
+    while True:
+        try_times += 1
+        if try_times > 9:
+            print("FAILED")
+            break
+        try:
+            if try_times > 8:
+                print("FINAL TRY:")
+                response = ask(
+                    question+
+                    ("請直接輸出正確的選項編號（例如：1、2、3、4、A、B、C、D）。\n"
+                    "不要輸出解釋或其他文字。\n"
+                    "答案格式：只輸出數字或英文字母。\n"
+                    "如果不確定，也請選最可能的答案。")
+                )
+            else:
+                response = ask(question)
+                # print(response)
+                # print(response.strip())
+                # for idx, c in enumerate(response.strip()):
+                #     print(f"[{idx}]:\t|{c}|")
+                # print(response.strip()[-1])
+                # print((not response))
+                # print(response.strip()[-1] == "…")
+
+            if not response or response.strip()[-1] == "…" or len(response.strip().split('|'))<2:
+                raise Exception("model output incorrect")
+            break
+        except Exception:
+            print("Error during ask():")
+            print(traceback.format_exc())
+            print("Retrying...")
+    return response
 
 def main():
     for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
-    # for f in ["109-1職業安全管理學術科試題.csv","109-1職業安全衛生管理學術科試題.csv","111-3職業衛生管理學科試題.csv"]:
         result_csv = os.path.join(os.path.dirname(__file__),"evaluation_results.csv")
         print(f"Evaluating file: {f}")
         df = get_qa_from_csv(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs", f))
@@ -91,19 +127,27 @@ def main():
             answer = row["answer"]
             print("-----")
             print(f"#Q{idx} Question: {question}")
-            response = ask(question)
-            match = re.search(r'([A-Za-z0-9]+)$', response.strip())
-            if match:
-                response = match.group(1)
+            
+            response = try_ask(question)
+            print()
+            response = response.split('|')[-1]
+            # match = re.search(r'([A-Za-z0-9]+)$', response.strip())
+            # if match:
+            #     response = match.group(1)
             print(f"Model Answer: {response}")
             print(f"Correct Answer: {answer}")
-            if not os.path.exists(os.path.join(os.path.dirname(__file__), result_csv)):
-                with open(result_csv, "w", encoding="utf-8") as out_f:
-                    out_f.write(
-                        '"file","number","question","model_answer","correct_answer"\n'
-                    )
-            with open(result_csv, "a", encoding="utf-8") as out_f:
-                out_f.write(f'"{f}","{idx}","{question}","{response}","{answer}"\n')
+            row = pd.DataFrame([{
+                "file": f,
+                "number": idx,
+                "question": question,
+                "model_answer": response,
+                "correct_answer": answer
+            }])
+            result_path = os.path.join(os.path.dirname(__file__), result_csv)
+            if not os.path.exists(result_path):
+                row.to_csv(result_path, index=False, encoding="utf-8")
+            else:
+                row.to_csv(result_path, mode="a", index=False, header=False, encoding="utf-8")
         break
 
 

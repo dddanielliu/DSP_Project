@@ -33,6 +33,7 @@ def search_law_by_name(law_name):
     params = {
         'cur': 'Ln',      # 當前位置
         'ty': 'LAW',      # 搜尋類型：法規名稱
+        'set': 'LPCODE|ASC', # 排序方式
         'kw': law_name,   # 關鍵字
     }
     
@@ -76,12 +77,16 @@ def search_law_by_name(law_name):
             links = tbody.find_all('a', href=re.compile(r'pcode='))
         
         if links:
-            link = links[0]
-            href = link.get('href')
-            law_title = link.text.strip()
-            if law_name not in law_title:
-                print(f"找不到法規「{law_name}」")
-                return None
+            link = None
+            for i in range(len(links)):
+                href = links[i].get('href')
+                law_title = links[i].text.strip()
+                if law_name in law_title:
+                    link = links[i]
+                    break
+                elif i == len(links) - 1:
+                    print(f"找不到法規「{law_name}」")
+                    return None
             
             # 提取 PCODE
             pcode_match = re.search(r'[Pp][Cc][Oo][Dd][Ee]=([A-Za-z0-9]+)', href)

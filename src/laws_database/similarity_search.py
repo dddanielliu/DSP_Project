@@ -229,16 +229,27 @@ def retrieve_context(
     """
     return manual_retrieve_context(query, law_name)
 
-def create_law_assistant_agent(verbose=True, config=None):
+_model = None
+
+def _init_model(
+    verbose: bool = True,
+    model_name: str = LLM_MODEL,
+):
+    global _model
+    _model=ChatOllama(
+        model=model_name,
+        temperature=0.2,
+        num_ctx=131072,
+        verbose=verbose,
+        num_predict=1200,
+        streaming=True,
+    )
+
+def create_law_assistant_agent(verbose=True, config=None, model_name=LLM_MODEL):
+    if _model is None:
+        _init_model(verbose=verbose, model_name=model_name)
     agent = create_agent(
-        model=ChatOllama(
-            model=LLM_MODEL,
-            temperature=0.2,
-            num_ctx=16384,
-            verbose=verbose,
-            num_predict=1200,
-            streaming=True,
-        ),
+        model = _model,
         tools=[retrieve_context],
         system_prompt=(
             """
@@ -247,30 +258,34 @@ def create_law_assistant_agent(verbose=True, config=None):
 
             請嚴格遵守以下規則：  
 
-            一、檢索規則  
-            1. 你只能使用 retrieve_context 工具來檢索法規，您可以自行決定要使用幾次、如何使用。 
-            2. 總共最多只能使用 5 次 retrieve_context 工具。總共不得超過5次。  
-            3. 若第一次檢索結果不足或不相關，請嘗試：  
-            - 對每一個選項分別使用 retrieve_context 搜尋；或  
-            - 使用問題中的關鍵詞進行精準搜尋。  
-            4. 若題目明確提及某部法規（例如：「危害性化學品標示及通識規則」），或你要針對某部法條內進行查詢時，請在呼叫 retrieve_context 時加入 law_name 參數，例如：  
-            retrieve_context({"query": "危害性化學品標示", "law_name": "危害性化學品標示及通識規則"})  
-            5. 不得重複查詢相同內容。  
-            6. 若 5 次檢索後仍不足以回答，請明確說明資訊不足，並根據所有檢索結果給出「最合理的推論性答案」。  
+            一、檢索規則（**常識判斷與嚴格限制**）  
+            1. **常識性問題處理：** 如果問題屬於職場安全衛生或環境保護領域的**基礎常識或普遍接受的概念**（例如：職業災害的直接原因、安全衛生的基本原則），**且你有高度信心直接回答，還是要認看看 `retrieve_context` 工具來檢索確認**，如果沒有結果，就進入「二、回答規則」。
+            2. 你**僅能**使用 `retrieve_context` 工具來檢索法規，您可以自行決定要使用幾次、如何使用。
+            3. 總共最多只能使用 **5 次** `retrieve_context` 工具。
+            4. 若第一次檢索結果不足或不相關，請嘗試：  
+                - 對每一個選項分別使用 `retrieve_context` 搜尋；或  
+                - 使用問題中的**主要關鍵詞**進行精準搜尋。  
+            5. 若題目明確提及某部法規或需針對特定法條查詢時，請務必在呼叫 `retrieve_context` 時加入 `law_name` 參數。  
+                - **範例：** `retrieve_context({"query": "危害性化學品標示", "law_name": "危害性化學品標示及通識規則"})`  
+            6. **不得重複查詢相同內容或使用過長的無效查詢。** 7. 若 5 次檢索後仍不足以回答，請明確說明資訊不足，並根據所有檢索結果給出「最合理的推論性答案」。  
 
             二、回答規則  
-            - 僅能根據檢索到的法規內容作答，不得自行杜撰或引用未檢索到的內容。  
-            - 若查無任何相關法規依據，請於回答時說明「查無相關法規依據，以下內容為基於常識知識或經驗的推論性答案」。  
-            - 若為選擇題，最終答案只回覆數字選項或英文選項。  
+            1. **最終答案**必須**僅根據**檢索到的法規內容作答。但如果是依據「一、檢索規則」第 1 點判斷為常識性問題而直接作答，則不在此限。
+            2. 若查無任何相關法規依據（且非常識性問題），請於答案前說明「查無相關法規依據，以下內容為基於常識知識或經驗的推論性答案」。  
+            3. 若題意涉及法條解釋衝突，應根據「特別法優於普通法」原則給出結論。  
 
-            三、回答格式  
-            請直接書出最終答案，並只回答數字或英文字母. 
+            三、回答格式（**極度嚴格**）  
+            1. **工具呼叫 (Tool Call) 限制：** 呼叫工具時，JSON 輸出的內容必須是**精簡且高度相關**的關鍵詞組合。**嚴禁**在 `query` 參數中出現任何重複、冗餘、不相關或過長的字串。
+            2. **最終答案格式：** 最終答案**只回覆數字或英文選項**。
+            3. **輸出規範：**
+                - 最終答案前請輸出一個**|字元**。
+                - 僅回答**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。
+                - 若為複選題，請依照數字或英文字母順序輸出，**中間不得包含空白、逗號或換行**。
+                - 若題目使用全形或特殊符號（如①），請轉換成對應的數字或英文字母（如 1）。
 
-            四、特別注意  
-            - 回答必須為數字或英文(1,2,3,4,A,B,C,D,...)，若為複選題請依照數字或英文字母順序輸出，中間不得空白或換行，若為全行或特殊符號請轉成對應的數字或英文字母(如①換成1)。  
-            - 若題意涉及法條解釋衝突，應根據「特別法優於普通法」原則給出結論。  
-            - 不得使用 retrieve_context 工具超過5次。  
-            - 在回答最終答案(數字或英文字母)前，請多輸出一個換行字元，以利後續解析。
+            四、特別警示  
+            **不得使用 `retrieve_context` 工具超過 5 次。**
+            **最終答案務必不包含任何其他文字，僅包含**|**加上選項代號(**數字**或**英文字母**)，並非選項內容。
             """
         ),
         middleware=[

@@ -19,7 +19,7 @@ PG_CONN_STRING = (
     f"dbname={PG_DATABASE} user={PG_USER} password={PG_PASSWORD} "
     f"host={PG_HOST} port={PG_PORT}"
 )
-print(f"Database connection string assembled (excluding password): dbname={PG_DATABASE} user={PG_USER} host={PG_HOST} port={PG_PORT}")
+# print(f"Database connection string assembled (excluding password): dbname={PG_DATABASE} user={PG_USER} host={PG_HOST} port={PG_PORT}")
 
 _conn = None
 _model = None
