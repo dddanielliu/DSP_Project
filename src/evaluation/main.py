@@ -115,16 +115,13 @@ def try_ask(question: str) -> str:
     return response
 
 def main():
-    # for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
-    for f in ["22000_-職業安全管理學科.csv", "111-3職業安全管理學科試題.csv", "109-1職業安全管理學術科試題.csv", "109-2職業安全管理學術科試題.csv", "109-1職業安全衛生管理學術科試題.csv","111-3職業衛生管理學科試題.csv"]:
+    for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
         result_csv = os.path.join(os.path.dirname(__file__),"evaluation_results.csv")
         print(f"Evaluating file: {f}")
         df = get_qa_from_csv(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs", f))
         if df.empty:
             continue
         for _, row in df.iterrows():
-            if f == "22000_-職業安全管理學科.csv" and int(row['number']) < 63:
-                continue
             idx = row["number"]
             question = row["question"]
             answer = row["answer"]
