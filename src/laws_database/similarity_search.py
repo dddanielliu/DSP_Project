@@ -167,9 +167,9 @@ def _serialize_documents_for_context(docs: list[Document]) -> str:
 def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str:
     """優先透過 LangChain 的 Ollama 介面進行推論，回傳文字答案。"""
     context_text = _serialize_documents_for_context(docs)
-    print(f"[LLM] Using LangChain OllamaLLM with model={LLM_MODEL}")
-    print(f"[LLM] docs={len(docs)}, query_len={len(query)}, context_chars={len(context_text)}")
-    print(f"[LLM] context_preview=\n{context_text[:2000]}{'...' if len(context_text)>2000 else ''}")
+    # print(f"[LLM] Using LangChain OllamaLLM with model={LLM_MODEL}")
+    # print(f"[LLM] docs={len(docs)}, query_len={len(query)}, context_chars={len(context_text)}")
+    # print(f"[LLM] context_preview=\n{context_text[:2000]}{'...' if len(context_text)>2000 else ''}")
     prompt = (
         "你是一位精通中華民國職場安全法規的法務助理。請根據提供的法規片段，"
         "用繁體中文進行『語意整合』後回答問題，並嚴格遵循：\n"
@@ -179,6 +179,8 @@ def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str
         "- 每個關鍵結論後以來源編號標注，例如 [#1][#3]（對應下方檢索結果的編號）。\n"
         "- 優先引用與問題最相關的條文，避免大段貼文或逐字拷貝。\n"
         "- 文末列出『參考來源』清單（[#n] 法規名 第X條）。\n\n"
+        "- 在最終答案前輸出**|**字元，後面接著最終答案。\n"
+        "- 最終答案只包含題目選項\n"
         f"【檢索結果】\n{context_text}\n\n"
         f"【問題】\n{query}\n\n"
         "【輸出格式】\n"
@@ -186,16 +188,24 @@ def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str
         "2) 直接回答：...\n"
         "3) 依據與說明：\n- ...\n- ...\n"
         "4) 參考來源：[#n] 法規名 第X條；[#m] ...\n"
+        "5) |<最終答案>\n"
+        "其中 <最終答案> 為題目的正確選項（如 或 3 或 B 或 234）"
+        "**最終答案輸出規範：**\n"
+        "- 最終答案前請輸出一個**|字元**。"
+        "- 僅回答選項代號：**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。\n"
+        "- 若為複選題，請依照數字或英文字母順序輸出，**中間不得包含空白、逗號或換行**。"
+        "- 若題目使用全形或特殊符號（如①），請轉換成對應的數字或英文字母（如 1）。"
     )
-    llm = OllamaLLM(
+    llm = ChatOllama(
         model=LLM_MODEL,
         temperature=0.2,
-        num_ctx=8192,
+        num_ctx=131072,
         num_predict=1200,
         top_p=0.9,
         repeat_penalty=1.1,
+        streaming=True,
     )
-    return llm.invoke(prompt)
+    return llm.invoke(prompt).content
 
 def manual_retrieve_context(
     query: Annotated[str, "The semantic query to search for relevant law context."],
@@ -208,7 +218,7 @@ def manual_retrieve_context(
       - serialized_str: 將每份文件的來源與內容合併成可讀字串
       - documents: list[Document]
     """
-    retrieved_docs = similarity_search.get_law_documents(query, top_k=10, law_name_filter=law_name)
+    retrieved_docs = similarity_search.get_law_documents(query, top_k=6, law_name_filter=law_name)
     if not retrieved_docs:
         serialized = f"【資料庫無{law_name}】"
         return serialized, []
@@ -259,7 +269,7 @@ def create_law_assistant_agent(verbose=True, config=None, model_name=LLM_MODEL):
             請嚴格遵守以下規則：  
 
             一、檢索規則（**常識判斷與嚴格限制**）  
-            1. **常識性問題處理：** 如果問題屬於職場安全衛生或環境保護領域的**基礎常識或普遍接受的概念**（例如：職業災害的直接原因、安全衛生的基本原則），**且你有高度信心直接回答，還是要認看看 `retrieve_context` 工具來檢索確認**，如果沒有結果，就進入「二、回答規則」。
+            1. **常識性問題處理：** 如果問題屬於**基礎常識或普遍接受的概念**，**且你有高度信心直接回答，還是要確認看看 `retrieve_context` 工具來檢索確認**，如果沒有結果，就進入「二、回答規則」。
             2. 你**僅能**使用 `retrieve_context` 工具來檢索法規，您可以自行決定要使用幾次、如何使用。
             3. 總共最多只能使用 **5 次** `retrieve_context` 工具。
             4. 若第一次檢索結果不足或不相關，請嘗試：  
@@ -279,7 +289,8 @@ def create_law_assistant_agent(verbose=True, config=None, model_name=LLM_MODEL):
             2. **最終答案格式：** 最終答案**只回覆數字或英文選項**。
             3. **輸出規範：**
                 - 最終答案前請輸出一個**|字元**。
-                - 僅回答**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。
+                - 僅回答選項代號**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。
+                - 例如選項為①4 ②5 ③6 ④7，若答案為 ④7，則輸出為 |4。
                 - 若為複選題，請依照數字或英文字母順序輸出，**中間不得包含空白、逗號或換行**。
                 - 若題目使用全形或特殊符號（如①），請轉換成對應的數字或英文字母（如 1）。
 
