@@ -33,6 +33,7 @@ def search_law_by_name(law_name):
     params = {
         'cur': 'Ln',      # 當前位置
         'ty': 'LAW',      # 搜尋類型：法規名稱
+        'set': 'LPCODE|ASC', # 排序方式
         'kw': law_name,   # 關鍵字
     }
     
@@ -76,9 +77,16 @@ def search_law_by_name(law_name):
             links = tbody.find_all('a', href=re.compile(r'pcode='))
         
         if links:
-            link = links[0]
-            href = link.get('href')
-            law_title = link.text.strip()
+            link = None
+            for i in range(len(links)):
+                href = links[i].get('href')
+                law_title = links[i].text.strip()
+                if law_name in law_title:
+                    link = links[i]
+                    break
+                elif i == len(links) - 1:
+                    print(f"找不到法規「{law_name}」")
+                    return None
             
             # 提取 PCODE
             pcode_match = re.search(r'[Pp][Cc][Oo][Dd][Ee]=([A-Za-z0-9]+)', href)
@@ -177,6 +185,37 @@ def get_law_url_directly(law_name):
         print(f"搜尋發生錯誤：{e}")
         return []
 
+def append_and_sort_file(new_url, filepath=os.path.join(os.path.dirname(__file__), "links.txt")):
+    """
+    Appends a new URL to the file, then reads all lines, sorts them,
+    and writes the sorted list back to the file.
+    """
+
+    # 1. Read existing content (or start with an empty list if file doesn't exist)
+    lines = []
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        # File doesn't exist yet, lines is already []
+        pass
+
+    # Clean up lines: remove trailing newlines and duplicates before adding the new URL
+    cleaned_lines = {line.strip() for line in lines if line.strip()}
+    
+    # Add the new URL (using a set prevents adding duplicates)
+    cleaned_lines.add(new_url.strip())
+
+    # 2. Convert back to a list for sorting
+    sorted_lines_list = list(cleaned_lines)
+    
+    # Sort the lines alphabetically
+    sorted_lines_list.sort() 
+
+    # 3. Write the sorted list back to the file, ensuring each has a newline
+    with open(filepath, 'w', encoding='utf-8') as f:
+        for line in sorted_lines_list:
+            f.write(line + '\n')
 
 def save_to_links_file(url, filename="links.txt"):
     """
@@ -191,16 +230,17 @@ def save_to_links_file(url, filename="links.txt"):
     """
     try:
         # 檢查連結是否已存在
-        if os.path.exists(filename):
-            with open(filename, 'r', encoding='utf-8') as f:
+        if os.path.exists(os.path.join(os.path.dirname(__file__), filename)):
+            with open(os.path.join(os.path.dirname(__file__), filename), 'r', encoding='utf-8') as f:
                 existing_links = f.read().splitlines()
                 if url in existing_links:
                     print(f"ℹ️  連結已存在於 {filename} 中")
                     return True
         
-        # 將連結追加到檔案末尾
-        with open(filename, 'a', encoding='utf-8') as f:
-            f.write(url + '\n')
+        # # 將連結追加到檔案末尾
+        # with open(os.path.join(os.path.dirname(__file__), filename), 'a', encoding='utf-8') as f:
+        #     f.write(url + '\n')
+        append_and_sort_file(url, os.path.join(os.path.dirname(__file__), filename))
         
         print(f"連結已保存至 {filename}")
         return True

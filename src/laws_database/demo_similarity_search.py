@@ -1,6 +1,5 @@
 import os
 import psycopg2
-import numpy as np
 from sentence_transformers import SentenceTransformer
 
 # ------------------ PostgreSQL Connection ------------------

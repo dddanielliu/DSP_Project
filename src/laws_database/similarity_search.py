@@ -10,8 +10,6 @@ from langchain_core.documents import Document
 from langchain_ollama import ChatOllama, OllamaLLM
 from sentence_transformers import SentenceTransformer
 
-from ..web_crawl.generate_law import search_law_by_name
-
 # ------------------ PostgreSQL Connection ------------------
 PG_HOST = os.environ.get("PG_HOST", "localhost")
 PG_PORT = os.environ.get("PG_PORT", "5432")
@@ -31,6 +29,10 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-oss:20b")
 # ------------------ Load Embedding Model ------------------
 MODEL_NAME = "intfloat/multilingual-e5-large"
 
+AUTO_ADD_LAW = False if os.environ.get("AUTO_ADD_LAW", "0") == "0" else True
+
+if AUTO_ADD_LAW:
+    from .add_single_law import add_single_law
 
 class SimilaritySearch:
     def __init__(self):
@@ -107,7 +109,7 @@ class SimilaritySearch:
 
         if len(chunk_results) == 0:
             try:
-                with open("no_law_name_filter.txt", "r", encoding="utf-8") as f:
+                with open(os.path.join(os.path.dirname(__file__), "..", "web_crawl", "no_law_name_filter.txt"), "r", encoding="utf-8") as f:
                     existing_filters = f.read().splitlines()
             except FileNotFoundError:
                 # File doesn't exist yet, so no need to check existing entries
@@ -115,8 +117,18 @@ class SimilaritySearch:
 
             # 2. Write to the file only if it's a new entry
             if law_name_filter not in existing_filters:
-                with open("no_law_name_filter.txt", "a", encoding="utf-8") as f:
+                with open(os.path.join(os.path.dirname(__file__), "..", "web_crawl", "no_law_name_filter.txt"), "a", encoding="utf-8") as f:
                     f.write(f"{law_name_filter}\n")
+        
+            if law_name_filter is not None and AUTO_ADD_LAW:
+                print(f"[SimilaritySearch] Attempting Auto-adding '{law_name_filter}'")
+                # 嘗試自動新增法規連結
+                add_single_law(law_name_filter)
+                # print(f"[SimilaritySearch] Re-attempting retrieval after Auto-adding '{law_name_filter}'")
+                # 再次嘗試檢索
+                chunk_results = self.get_top_k_law_chunks(query, top_k, law_name_filter)
+                print(f"[SimilaritySearch] Retrieved {len(chunk_results)} chunks after Auto-adding for query='{query}' with law_name_filter='{law_name_filter}'")
+
 
         documents = [
             Document(
@@ -155,9 +167,9 @@ def _serialize_documents_for_context(docs: list[Document]) -> str:
 def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str:
     """優先透過 LangChain 的 Ollama 介面進行推論，回傳文字答案。"""
     context_text = _serialize_documents_for_context(docs)
-    print(f"[LLM] Using LangChain OllamaLLM with model={LLM_MODEL}")
-    print(f"[LLM] docs={len(docs)}, query_len={len(query)}, context_chars={len(context_text)}")
-    print(f"[LLM] context_preview=\n{context_text[:2000]}{'...' if len(context_text)>2000 else ''}")
+    # print(f"[LLM] Using LangChain OllamaLLM with model={LLM_MODEL}")
+    # print(f"[LLM] docs={len(docs)}, query_len={len(query)}, context_chars={len(context_text)}")
+    # print(f"[LLM] context_preview=\n{context_text[:2000]}{'...' if len(context_text)>2000 else ''}")
     prompt = (
         "你是一位精通中華民國職場安全法規的法務助理。請根據提供的法規片段，"
         "用繁體中文進行『語意整合』後回答問題，並嚴格遵循：\n"
@@ -167,6 +179,8 @@ def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str
         "- 每個關鍵結論後以來源編號標注，例如 [#1][#3]（對應下方檢索結果的編號）。\n"
         "- 優先引用與問題最相關的條文，避免大段貼文或逐字拷貝。\n"
         "- 文末列出『參考來源』清單（[#n] 法規名 第X條）。\n\n"
+        "- 在最終答案前輸出**|**字元，後面接著最終答案。\n"
+        "- 最終答案只包含題目選項\n"
         f"【檢索結果】\n{context_text}\n\n"
         f"【問題】\n{query}\n\n"
         "【輸出格式】\n"
@@ -174,16 +188,24 @@ def call_llm_with_context_via_langchain(query: str, docs: list[Document]) -> str
         "2) 直接回答：...\n"
         "3) 依據與說明：\n- ...\n- ...\n"
         "4) 參考來源：[#n] 法規名 第X條；[#m] ...\n"
+        "5) |<最終答案>\n"
+        "其中 <最終答案> 為題目的正確選項（如 或 3 或 B 或 234）"
+        "**最終答案輸出規範：**\n"
+        "- 最終答案前請輸出一個**|字元**。"
+        "- 僅回答選項代號：**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。\n"
+        "- 若為複選題，請依照數字或英文字母順序輸出，**中間不得包含空白、逗號或換行**。"
+        "- 若題目使用全形或特殊符號（如①），請轉換成對應的數字或英文字母（如 1）。"
     )
-    llm = OllamaLLM(
+    llm = ChatOllama(
         model=LLM_MODEL,
         temperature=0.2,
-        num_ctx=8192,
+        num_ctx=131072,
         num_predict=1200,
         top_p=0.9,
         repeat_penalty=1.1,
+        streaming=True,
     )
-    return llm.invoke(prompt)
+    return llm.invoke(prompt).content
 
 def manual_retrieve_context(
     query: Annotated[str, "The semantic query to search for relevant law context."],
@@ -196,7 +218,7 @@ def manual_retrieve_context(
       - serialized_str: 將每份文件的來源與內容合併成可讀字串
       - documents: list[Document]
     """
-    retrieved_docs = similarity_search.get_law_documents(query, top_k=10, law_name_filter=law_name)
+    retrieved_docs = similarity_search.get_law_documents(query, top_k=6, law_name_filter=law_name)
     if not retrieved_docs:
         serialized = f"【資料庫無{law_name}】"
         return serialized, []
@@ -217,16 +239,27 @@ def retrieve_context(
     """
     return manual_retrieve_context(query, law_name)
 
-def create_law_assistant_agent(verbose=True, config=None):
+_model = None
+
+def _init_model(
+    verbose: bool = True,
+    model_name: str = LLM_MODEL,
+):
+    global _model
+    _model=ChatOllama(
+        model=model_name,
+        temperature=0.2,
+        num_ctx=131072,
+        verbose=verbose,
+        num_predict=1200,
+        streaming=True,
+    )
+
+def create_law_assistant_agent(verbose=True, config=None, model_name=LLM_MODEL):
+    if _model is None:
+        _init_model(verbose=verbose, model_name=model_name)
     agent = create_agent(
-        model=ChatOllama(
-            model=LLM_MODEL,
-            temperature=0.2,
-            num_ctx=16384,
-            verbose=verbose,
-            num_predict=1200,
-            streaming=True,
-        ),
+        model = _model,
         tools=[retrieve_context],
         system_prompt=(
             """
@@ -235,30 +268,35 @@ def create_law_assistant_agent(verbose=True, config=None):
 
             請嚴格遵守以下規則：  
 
-            一、檢索規則  
-            1. 你只能使用 retrieve_context 工具來檢索法規，您可以自行決定要使用幾次、如何使用。 
-            2. 總共最多只能使用 5 次 retrieve_context 工具。總共不得超過5次。  
-            3. 若第一次檢索結果不足或不相關，請嘗試：  
-            - 對每一個選項分別使用 retrieve_context 搜尋；或  
-            - 使用問題中的關鍵詞進行精準搜尋。  
-            4. 若題目明確提及某部法規（例如：「危害性化學品標示及通識規則」），或你要針對某部法條內進行查詢時，請在呼叫 retrieve_context 時加入 law_name 參數，例如：  
-            retrieve_context({"query": "危害性化學品標示", "law_name": "危害性化學品標示及通識規則"})  
-            5. 不得重複查詢相同內容。  
-            6. 若 5 次檢索後仍不足以回答，請明確說明資訊不足，並根據所有檢索結果給出「最合理的推論性答案」。  
+            一、檢索規則（**常識判斷與嚴格限制**）  
+            1. **常識性問題處理：** 如果問題屬於**基礎常識或普遍接受的概念**，**且你有高度信心直接回答，還是要確認看看 `retrieve_context` 工具來檢索確認**，如果沒有結果，就進入「二、回答規則」。
+            2. 你**僅能**使用 `retrieve_context` 工具來檢索法規，您可以自行決定要使用幾次、如何使用。
+            3. 總共最多只能使用 **5 次** `retrieve_context` 工具。
+            4. 若第一次檢索結果不足或不相關，請嘗試：  
+                - 對每一個選項分別使用 `retrieve_context` 搜尋；或  
+                - 使用問題中的**主要關鍵詞**進行精準搜尋。  
+            5. 若題目明確提及某部法規或需針對特定法條查詢時，請務必在呼叫 `retrieve_context` 時加入 `law_name` 參數。  
+                - **範例：** `retrieve_context({"query": "危害性化學品標示", "law_name": "危害性化學品標示及通識規則"})`  
+            6. **不得重複查詢相同內容或使用過長的無效查詢。** 7. 若 5 次檢索後仍不足以回答，請明確說明資訊不足，並根據所有檢索結果給出「最合理的推論性答案」。  
 
             二、回答規則  
-            - 僅能根據檢索到的法規內容作答，不得自行杜撰或引用未檢索到的內容。  
-            - 若查無任何相關法規依據，請於回答時說明「查無相關法規依據，以下內容為基於常識知識或經驗的推論性答案」。  
-            - 若為選擇題，最終答案只回覆數字選項或英文選項。  
+            1. **最終答案**必須**僅根據**檢索到的法規內容作答。但如果是依據「一、檢索規則」第 1 點判斷為常識性問題而直接作答，則不在此限。
+            2. 若查無任何相關法規依據（且非常識性問題），請於答案前說明「查無相關法規依據，以下內容為基於常識知識或經驗的推論性答案」。  
+            3. 若題意涉及法條解釋衝突，應根據「特別法優於普通法」原則給出結論。  
 
-            三、回答格式  
-            請直接書出最終答案，並只回答數字或英文字母. 
+            三、回答格式（**極度嚴格**）  
+            1. **工具呼叫 (Tool Call) 限制：** 呼叫工具時，JSON 輸出的內容必須是**精簡且高度相關**的關鍵詞組合。**嚴禁**在 `query` 參數中出現任何重複、冗餘、不相關或過長的字串。
+            2. **最終答案格式：** 最終答案**只回覆數字或英文選項**。
+            3. **輸出規範：**
+                - 最終答案前請輸出一個**|字元**。
+                - 僅回答選項代號**數字**或**英文字母**（例如：1, 2, 3, 4, A, B, C, D...）。
+                - 例如選項為①4 ②5 ③6 ④7，若答案為 ④7，則輸出為 |4。
+                - 若為複選題，請依照數字或英文字母順序輸出，**中間不得包含空白、逗號或換行**。
+                - 若題目使用全形或特殊符號（如①），請轉換成對應的數字或英文字母（如 1）。
 
-            四、特別注意  
-            - 回答必須為數字或英文(1,2,3,4,A,B,C,D,...)，若為複選題請依照數字或英文字母順序輸出，中間不得空白或換行，若為全行或特殊符號請轉成對應的數字或英文字母(如①換成1)。  
-            - 若題意涉及法條解釋衝突，應根據「特別法優於普通法」原則給出結論。  
-            - 不得使用 retrieve_context 工具超過5次。  
-            - 在回答最終答案(數字或英文字母)前，請多輸出一個換行字元，以利後續解析。
+            四、特別警示  
+            **不得使用 `retrieve_context` 工具超過 5 次。**
+            **最終答案務必不包含任何其他文字，僅包含**|**加上選項代號(**數字**或**英文字母**)，並非選項內容。
             """
         ),
         middleware=[

@@ -1,12 +1,13 @@
+import hashlib
+import os
+
 import numpy as np
 import pandas as pd
-import os
-from tqdm import tqdm
 import psycopg2
-import hashlib
-from sentence_transformers import SentenceTransformer
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
 PG_HOST = os.environ.get("PG_HOST", "localhost")  # 默認為 localhost
 PG_PORT = os.environ.get("PG_PORT", "5432")      # 默認為 5432
@@ -18,8 +19,39 @@ PG_CONN_STRING = (
     f"dbname={PG_DATABASE} user={PG_USER} password={PG_PASSWORD} "
     f"host={PG_HOST} port={PG_PORT}"
 )
-print(f"Database connection string assembled (excluding password): dbname={PG_DATABASE} user={PG_USER} host={PG_HOST} port={PG_PORT}")
+# print(f"Database connection string assembled (excluding password): dbname={PG_DATABASE} user={PG_USER} host={PG_HOST} port={PG_PORT}")
 
+_conn = None
+_model = None
+_text_splitter = None
+def _init_resources():
+    global _conn, _model, _text_splitter
+    if _conn is None:
+        _conn = psycopg2.connect(PG_CONN_STRING)
+    if _model is None:
+        MODEL_NAME = "intfloat/multilingual-e5-large"
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # print(f"Using device: {device}")
+        _model = SentenceTransformer(
+            MODEL_NAME,
+            tokenizer_kwargs={"padding_side": "left"},
+        )
+    if _text_splitter is None:
+        _text_splitter = RecursiveCharacterTextSplitter(
+            separators=[
+                "\n\n",           # 1. 結構性分隔 (多於一個換行符)
+                "\n",             # 2. 單行換行符 (段落內換行)
+                "；", ";",          # 3. 分號 (較長的語義單元)
+                "。", "！", "？",  # 4. 中文句尾標點 (降級，除非段落過長才使用)
+                ".\n", "!\n", "?\n",
+                ". ", "! ", "? ", # 5. 英文句尾標點 (注意後接空格)
+                "，", ",",          # 6. 逗號
+                "、",              # 7. 頓號
+                " ",               # 8. 空格
+                ""                 # 9. 最差情況：強制字元切分
+            ],
+            chunk_size=500, chunk_overlap=200
+        )
 def generate_sha256_id(actname: str, chapter: str | None, article_no: str | None, subsection_no: str | None, chunk_index: int | None, content: str) -> str:
     """計算基於法條元數據和內容的 SHA-256 雜湊 ID"""
     # 將所有輸入參數合併成一個字串
@@ -80,30 +112,38 @@ def clean_value(value):
         return None
     return value
 
-if __name__ == "__main__":
-    MODEL_NAME = "intfloat/multilingual-e5-large"
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # print(f"Using device: {device}")
-    model = SentenceTransformer(
-        MODEL_NAME,
-        tokenizer_kwargs={"padding_side": "left"},
-    )
+def process_df(df: pd.DataFrame, lawname: str):
+    """
+    Process the DataFrame to insert law chunks and their embeddings into the database.
+    """
+    if not _model or not _conn or not _text_splitter:
+        _init_resources()
+    model = _model
+    conn = _conn
+    text_splitter = _text_splitter
+    for rows in tqdm(df.itertuples(), total=len(df), desc=f"Processing {lawname}"):
+        # content = rows[2]
+        # embedding = model.encode(content)
+        # print(f"Document: {content}\nEmbedding: {embedding[:5]}... (dim: {len(embedding)})\n")
+        actname = clean_value(rows.actname) # 法條
+        chapter = clean_value(rows.chapter) # 章
+        title = clean_value(rows.title) # 第?條
+        subsection_no = clean_value(rows.subsection) # 款號
+        article = clean_value(rows.article) # 內容
+        insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, None, article, None)
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        separators=[
-            "\n\n",           # 1. 結構性分隔 (多於一個換行符)
-            "\n",             # 2. 單行換行符 (段落內換行)
-            "；", ";",          # 3. 分號 (較長的語義單元)
-            "。", "！", "？",  # 4. 中文句尾標點 (降級，除非段落過長才使用)
-            ".\n", "!\n", "?\n",
-            ". ", "! ", "? ", # 5. 英文句尾標點 (注意後接空格)
-            "，", ",",          # 6. 逗號
-            "、",              # 7. 頓號
-            " ",               # 8. 空格
-            ""                 # 9. 最差情況：強制字元切分
-        ],
-        chunk_size=500, chunk_overlap=200
-    )
+        chunks = text_splitter.split_text(article)
+
+        document_embeddings = model.encode(["passage: " + chunk for chunk in chunks])
+        # print("embedding done")
+        for i, vec in enumerate(document_embeddings):
+            insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, i, chunks[i], vec)
+    
+if __name__ == "__main__":
+    _init_resources()
+    model = _model
+    text_splitter = _text_splitter
+    conn = _conn
     # model.to(device)
     # print("start")
     # documents = [
@@ -115,31 +155,15 @@ if __name__ == "__main__":
     # document_embeddings = model.encode(documents)
     # for doc, embedding in zip(documents, document_embeddings):
     #     print(f"Document: {doc}\nEmbedding: {embedding[:5]}... (dim: {len(embedding)})\n")
-    conn = psycopg2.connect(PG_CONN_STRING)
 
-    for item in tqdm(os.listdir("laws"), desc="Processing files"):
+
+    for item in tqdm(os.listdir(os.path.join(os.path.dirname(__file__),"..","web_crawl","laws")), desc="Processing files"):
         # csv files
-        df = pd.read_csv(os.path.join("laws", item))
-        for rows in tqdm(df.itertuples(), total=len(df), desc=f"Processing {item.split('_')[0]}"):
-            # content = rows[2]
-            # embedding = model.encode(content)
-            # print(f"Document: {content}\nEmbedding: {embedding[:5]}... (dim: {len(embedding)})\n")
-            actname = clean_value(rows.actname) # 法條
-            chapter = clean_value(rows.chapter) # 章
-            title = clean_value(rows.title) # 第?條
-            subsection_no = clean_value(rows.subsection) # 款號
-            article = clean_value(rows.article) # 內容
-            insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, None, article, None)
+        df = pd.read_csv(os.path.join(os.path.dirname(__file__),"..","web_crawl","laws", item))
+        process_df(df, lawname=item.split('_')[0])
 
-            chunks = text_splitter.split_text(article)
-
-            document_embeddings = model.encode(["passage: " + chunk for chunk in chunks])
-            # print("embedding done")
-            for i, vec in enumerate(document_embeddings):
-                insert_chunk_and_commit(conn, actname, chapter, title, subsection_no, i, chunks[i], vec)
-
-    for item in tqdm(os.listdir("pdfs"), desc="Processing PDF files"):
-        pdf_file = os.path.join("pdfs", item)
+    for item in tqdm(os.listdir(os.path.join(os.path.dirname(__file__),"..","web_crawl","pdfs")), desc="Processing PDF files"):
+        pdf_file = os.path.join(os.path.dirname(__file__),"..","web_crawl","pdfs", item)
         loader = PyPDFLoader(pdf_file)
         data = loader.load()
         texts = text_splitter.split_documents(data)

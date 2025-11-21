@@ -115,8 +115,9 @@ def try_ask(question: str) -> str:
     return response
 
 def main():
-    for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
-        result_csv = os.path.join(os.path.dirname(__file__),"evaluation_results.csv")
+    # for f in os.listdir(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs")):
+    for f in ["22200_-職業安全衛生管理學科.csv"]:
+        result_csv = os.path.join(os.path.dirname(__file__),"evaluation_results_repeat.csv")
         print(f"Evaluating file: {f}")
         df = get_qa_from_csv(os.path.join(os.path.dirname(__file__),"..","question_crawl", "csvs", f))
         if df.empty:
@@ -125,29 +126,30 @@ def main():
             idx = row["number"]
             question = row["question"]
             answer = row["answer"]
-            print("-----")
-            print(f"#Q{idx} Question: {question}")
-            
-            response = try_ask(question)
-            print()
-            response = response.split('|')[-1]
-            # match = re.search(r'([A-Za-z0-9]+)$', response.strip())
-            # if match:
-            #     response = match.group(1)
-            print(f"Model Answer: {response}")
-            print(f"Correct Answer: {answer}")
-            row = pd.DataFrame([{
-                "file": f,
-                "number": idx,
-                "question": question,
-                "model_answer": response,
-                "correct_answer": answer
-            }])
-            result_path = os.path.join(os.path.dirname(__file__), result_csv)
-            if not os.path.exists(result_path):
-                row.to_csv(result_path, index=False, encoding="utf-8")
-            else:
-                row.to_csv(result_path, mode="a", index=False, header=False, encoding="utf-8")
+            for i in range(5):
+                print("-----")
+                print(f"#Q{idx} Question: {question}")
+                
+                response = try_ask(question)
+                print()
+                response = response.split('|')[-1]
+                # match = re.search(r'([A-Za-z0-9]+)$', response.strip())
+                # if match:
+                #     response = match.group(1)
+                print(f"Model Answer: {response}")
+                print(f"Correct Answer: {answer}")
+                row = pd.DataFrame([{
+                    "file": f,
+                    "number": idx,
+                    "question": question,
+                    "model_answer": response,
+                    "correct_answer": answer
+                }])
+                result_path = os.path.join(os.path.dirname(__file__), result_csv)
+                if not os.path.exists(result_path):
+                    row.to_csv(result_path, index=False, encoding="utf-8")
+                else:
+                    row.to_csv(result_path, mode="a", index=False, header=False, encoding="utf-8")
 
 
 if __name__ == "__main__":
