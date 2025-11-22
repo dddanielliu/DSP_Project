@@ -7,6 +7,7 @@ import numpy as np
 database=pd.DataFrame([],columns=["actname","chapter","title","article"])
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 #%%第二段
 #urls=[]
@@ -94,27 +95,22 @@ def crawl_questions(url, filename):
 
     return lawbase
 
-def process_url(url: str):
-    database=pd.DataFrame([],columns=["actname","chapter","title","subsection","article"])
-    print("Crawling URL:", url)
-    # Call the function with the URL
-    web = requests.get(url)
-    soup = BeautifulSoup(web.text, "html.parser")
-    filename=soup.find('table').find('a').text
-    lawbase=crawl_questions(url, filename)
-    database=pd.concat([lawbase,database])
-    #database.to_csv("{}.csv".format(filename))
-    return (database, filename)
-
-if __name__ == "__main__":
-    with open(os.path.join(os.path.dirname(__file__),"links.txt"), "r") as file:
-        urls = [line.strip() for line in file.readlines()]
+def web_crawl(urls: list[str]):
     if os.path.exists("laws") is False:
         os.mkdir("laws")
-    for url in urls:
+    def process_url(url):
         try:
-            database, filename = process_url(url)
-            database.to_csv(os.path.join(os.path.dirname(__file__), "laws", "{}_{}.csv".format(filename, url.replace(":", "_").replace("/", "_").replace("?", "_"))),index=False)
+            database = pd.DataFrame([], columns=["actname", "chapter", "title", "subsection", "article"])
+            print("Crawling URL:", url)
+            web = requests.get(url)
+            soup = BeautifulSoup(web.text, "html.parser")
+            filename = soup.find('table').find('a').text
+            lawbase = crawl_questions(url, filename)
+            database = pd.concat([lawbase, database])
+            csv_path = os.path.join(os.path.dirname(__file__), "laws", "{}_{}.csv".format(filename, url.replace(":", "_").replace("/", "_").replace("?", "_")))
+            database.to_csv(csv_path, index=False)
+            print("Saved:", csv_path)
+            return True
         except Exception as err:
             # direct download file
             print("Error occurred, trying to download file directly:", url, "({})".format(err))
@@ -131,5 +127,20 @@ if __name__ == "__main__":
                     print(f"無法下載檔案，HTTP 狀態碼: {response.status_code}")
             except Exception as e:
                 print(f"下載檔案時發生錯誤: {e}")
+
+    # Use ThreadPoolExecutor to run N workers concurrently
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(process_url, url) for url in urls]
+        for future in as_completed(futures):
+            # You can handle the result here if needed
+            future.result()
+
+
+if __name__ == "__main__":
+    with open(os.path.join(os.path.dirname(__file__),"links.txt"), "r") as file:
+        urls = [line.strip() for line in file.readlines()]
+    if os.path.exists("laws") is False:
+        os.mkdir("laws")
+    web_crawl(urls)
     #end_time=time.time()
     #print("花費時間:",end_time-start_time)
