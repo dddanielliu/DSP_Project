@@ -44,12 +44,12 @@ def ask(query: str):
         messages.append(
             {
                 "role": "assistant",
-                "content": f"初次 retrieve_context 結果：\n{serialized_str}",
+                "content": f"初次 retrieve_context 結果：\n{serialized_str}\n請回答使用者的問題，如有需要可以繼續call tool",
             }
         )
 
-    # result = agent.invoke({"messages": messages})
-    # return result["messages"][-1].content
+    result = agent.invoke({"messages": messages})
+    return result["messages"][-1].content
 
     result = ""
     for token, metadata in agent.stream(
@@ -89,11 +89,11 @@ def try_ask(question: str) -> str:
             if try_times > 7:
                 print("FINAL TRIES:")
                 response = ask(
-                    question+
-                    ("請直接輸出正確的選項編號（例如：1、2、3、4、A、B、C、D）。\n"
-                    "不要輸出解釋或其他文字。\n"
-                    "答案格式：只輸出數字或英文字母。\n"
-                    "如果不確定，也請選最可能的答案。")
+                    question+"\n請直接輸出正確答案"
+                    # ("請直接輸出正確的選項編號（例如：1、2、3、4、A、B、C、D）。\n"
+                    # "不要輸出解釋或其他文字。\n"
+                    # "答案格式：只輸出數字或英文字母。\n"
+                    # "如果不確定，也請選最可能的答案。")
                 )
             else:
                 response = ask(question)
@@ -105,7 +105,7 @@ def try_ask(question: str) -> str:
                 # print((not response))
                 # print(response.strip()[-1] == "…")
 
-            if not response or response.strip()[-1] == "…" or len(response.strip().split('|'))<2:
+            if not response or response.strip()[-1] == "…":
                 raise Exception("model output incorrect")
             break
         except Exception:
@@ -121,7 +121,7 @@ def main():
         question = input()
         response = try_ask(question)
         print(response)
-        response = response.split('|')[-1]
+        # response = response.split('|')[-1]
         # match = re.search(r'([A-Za-z0-9]+)$', response.strip())
         # if match:
         #     response = match.group(1)
