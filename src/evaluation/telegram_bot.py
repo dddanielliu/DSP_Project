@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filte
 from telegram.request import HTTPXRequest
 
 # --- Configuration ---
-TELEGRAM_BOT_TOKEN = "8012133467:AAH5kLMXe2iaXZ4gdePkx8-nCy7B-4oThv4"
+TELEGRAM_BOT_TOKEN = ""
 GENERATE_API_URL = "http://127.0.0.1:8901/generate"
 
 # Set up logging
