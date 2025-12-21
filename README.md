@@ -143,7 +143,8 @@ This approach allows the system to understand the semantic intent of user querie
 
 ## Acknowledgments
 
-[Thank any individuals or organizations who provided support or assistance during your project, including funding sources or data providers.]
+DSP Chia-Kai Liu
+NCCU Chung-pei Pien
 
 ## References
 
