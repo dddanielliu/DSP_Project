@@ -41,21 +41,12 @@ To get a local copy up and running, follow these steps.
     (Replace `https://github.com/dddanielliu/DSP_Project.git` with the actual repository URL)
 
 2.  **Navigate to the `src/laws_database` directory and set up the database**:
-    ```bash
-    cd src/laws_database
-    # Create the .env file with your PostgreSQL credentials
-    # Use the docker-compose-dev.yml for development setup
-    docker-compose -f docker-compose-dev.yml up -d postgres
-    ```
-    This will start a PostgreSQL container with the `pgvector` extension enabled and the `law_chunks` table schema initialized.
+    refer to [src/laws_database](src/laws_database)
 
 3.  **Install Python dependencies for all modules**:
-    Navigate back to the project root directory and use `uv` to install dependencies.
+    use `uv` to install dependencies.
     ```bash
-    cd ../.. # Assuming you are in src/laws_database, go back to project root
-    uv sync --with cpu # For CPU-only environment
-    # or for ROCm GPU support (if applicable)
-    # uv sync --with rocm
+    uv sync --extra rocm
     ```
 
 4.  **Crawl Legal Data**:
