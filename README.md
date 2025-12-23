@@ -13,6 +13,9 @@ The system encompasses several key components:
 5.  **API and Chatbot Integration**: Provides various user-friendly interfaces, including a FastAPI-based API and integrations with popular messaging platforms like LINE Bot and Telegram Bot, enabling interactive querying and information retrieval.
 6.  **Evaluation and Learning Support**: Includes components for demonstrating and evaluating the system's performance, with a potential application in preparing for occupational safety basic examinations.
 
+![Workflow](https://github.com/user-attachments/assets/0eb70939-a9c7-4abb-a011-c1333027235a)
+
+
 ## Getting Started
 
 To get a local copy up and running, follow these steps.
