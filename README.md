@@ -124,7 +124,7 @@ This approach allows the system to understand the semantic intent of user querie
 
 ## Results
 
-To evaluate the system, the model's accuracy was tested using occupational safety exam questions (Source: 22200_職業安全衛生管理學科(乙級)). The system achieved a **73% answer accuracy** in this evaluation.
+To evaluate the system, the model's accuracy was tested using occupational safety exam questions (Source: http://www.osh-soeasy.com/exam.html). The system achieved a **73% answer accuracy** in this evaluation.
 
 The results demonstrate that the RAG-based approach is significantly more effective than a non-RAG approach, proving its feasibility for professional query scenarios and its capability of responding to most occupational safety regulation inquiries.
 
@@ -146,6 +146,7 @@ NCCU Chung-pei Pien
 
 ## References
 
+http://www.osh-soeasy.com/exam.html \
 https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060010 \
 https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060027 \
 https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060065 \
