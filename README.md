@@ -35,10 +35,10 @@ To get a local copy up and running, follow these steps.
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/your-username/DSP_Project.git
+    git clone https://github.com/dddanielliu/DSP_Project.git
     cd DSP_Project
     ```
-    (Replace `https://github.com/your-username/DSP_Project.git` with the actual repository URL)
+    (Replace `https://github.com/dddanielliu/DSP_Project.git` with the actual repository URL)
 
 2.  **Navigate to the `src/laws_database` directory and set up the database**:
     ```bash
@@ -99,8 +99,6 @@ The project is organized into several key directories:
         *   **Key Files**:
             *   `create_vector.py`: Script to generate vector embeddings from the crawled data and populate the `pgvector` enabled PostgreSQL database.
             *   `demo_similarity_search.py`: A demonstration script to perform semantic similarity searches against the populated database.
-            *   `docker-compose.yml`: Docker Compose configuration for production deployment of the PostgreSQL database.
-            *   `docker-compose-dev.yml`: Docker Compose configuration for development environment, including PostgreSQL with `pgvector` and an `init.sql` for schema setup.
             *   `init.sql`: SQL script to initialize the PostgreSQL database schema, including the `law_chunks` table and `pgvector` extension.
             *   `pyproject.toml`: Python project configuration and dependency management for this module.
     *   `src/evaluation/`:
