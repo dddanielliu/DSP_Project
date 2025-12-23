@@ -21,8 +21,6 @@ The system encompasses several key components:
 To get a local copy up and running, follow these steps.
 
 ### Prerequisites
-
-*   **Docker** and **Docker Compose**: Required for setting up the PostgreSQL database with `pgvector`.
 *   **Python 3.11 or higher**: The primary programming language for the project.
 *   **uv**: A fast Python package installer and resolver. Install it via `pip install uv`.
 *   **.env file**: A `.env` file will be needed in `src/laws_database/` to configure PostgreSQL connection details. An example `.env` content:
