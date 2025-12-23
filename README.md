@@ -128,6 +128,13 @@ To evaluate the system, the model's accuracy was tested using occupational safet
 
 The results demonstrate that the RAG-based approach is significantly more effective than a non-RAG approach, proving its feasibility for professional query scenarios and its capability of responding to most occupational safety regulation inquiries.
 
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/dc7dc9c0-386d-4342-bb5c-0961836d9f7f" width="250"></td>
+    <td><img src="https://github.com/user-attachments/assets/b6d98bcb-fe2e-477b-88ae-1d195583ac59" width="320"></td>
+  </tr>
+</table>
+
 ### Conclusion and Future Work
 
 This study successfully developed a regulation-oriented intelligent query system powered by RAG technology. In the future, we plan to expand the coverage of regulatory sources and further enhance model performance. We also aim to explore the use of knowledge graphs to represent regulatory relationships, allowing articles, definitions, responsibilities, and penalties to be structured more clearly. This will strengthen the interconnectedness of legal provisions and improve the interpretability and visualization of regulatory knowledge.
