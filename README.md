@@ -141,14 +141,14 @@ This study successfully developed a regulation-oriented intelligent query system
 
 ## Acknowledgments
 
-DSP Chia-Kai Liu
+DSP Chia-Kai Liu \
 NCCU Chung-pei Pien
 
 ## References
 
-https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060010
-https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060027
-https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060065
-https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060066
-https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0070017
+https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060010 \
+https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060027 \
+https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060065 \
+https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0060066 \
+https://law.moj.gov.tw/LawClass/LawAll.aspx?PCODE=N0070017 \
 https://law.moj.gov.tw/Law/LawSearchResult.aspx?cur=Ln&ty=LAW&kw=%E5%8B%9E%E5%B7%A5%E4%BF%9D%E9%9A%AA%E6%A2%9D%E4%BE%8B
