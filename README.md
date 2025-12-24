@@ -38,7 +38,6 @@ To get a local copy up and running, follow these steps.
     git clone https://github.com/dddanielliu/DSP_Project.git
     cd DSP_Project
     ```
-    (Replace `https://github.com/dddanielliu/DSP_Project.git` with the actual repository URL)
 
 2.  **Navigate to the `src/laws_database` directory and set up the database**:
     refer to [src/laws_database](src/laws_database)
@@ -106,9 +105,6 @@ The project is organized into several key directories:
             *   `loadpdf.py`: Script for loading and processing PDF content.
             *   `pyproject.toml`: Python project configuration and dependency management for this module.
 *   `DSP Project (shared).pdf`: This document provides the project vision, outlines the problem of occupational safety incidents, and includes sample test questions related to occupational safety regulations, suggesting the project's application in educational or assessment contexts.
-*   `.git/`: Git version control system directory.
-*   `.gitignore`: Specifies intentionally untracked files to ignore.
-*   `README.md`: This README file, providing an overview of the project.
 
 ## Analysis
 
